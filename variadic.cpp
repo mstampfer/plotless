@@ -14,6 +14,7 @@ struct plotter
     PyObject *callable;
     plotter()
     {
+        kwargs = PyDict_New();
         wchar_t name[] = L"variadic";
         Py_SetProgramName(name);
         Py_Initialize();
@@ -22,28 +23,25 @@ struct plotter
             throw std::runtime_error("Error initializing Python interpreter\n");
         }
         PyObject *sys = PyImport_ImportModule("sys");
-        auto xxx = PySys_GetObject("path");
-        auto zzz = PyImport_ImportModule("numpy.core.multiarray");
-        int x = _import_array();
-        if (x<0)
+        if (_import_array()<0)
             throw std::runtime_error("Error loading module multiarray!"); 
 
-        /* PyObject *yy = PyUnicode_FromString("matplotlib"); */
         matplotlib = PyImport_ImportModule("matplotlib");
         if (!matplotlib)
             throw std::runtime_error("Error loading module matplotlib!"); 
         Py_DECREF(PyImport_Import(PyUnicode_FromString("matplotlib")));
+
         PyObject_CallMethod(matplotlib, const_cast<char*>("use"), const_cast<char*>("s"), "TkAgg");
         
-        PyObject *xx = PyUnicode_FromString("matplotlib.pyplot");
-        pyplot = PyImport_Import(xx);
+        pyplot = PyImport_Import(PyUnicode_FromString("matplotlib.pyplot"));
         if (!pyplot)
             throw std::runtime_error("Error loading module pyplot!"); 
+
         callable = PyObject_GetAttrString(pyplot, "plot");
         if (!PyCallable_Check(callable))
             throw std::runtime_error("pyplot function is not callable!");
+
         Py_DECREF(PyImport_Import(PyUnicode_FromString("matplotlib.pyplot")));
-        kwargs = PyDict_New();
     }
 
     ~plotter()
@@ -55,25 +53,13 @@ struct plotter
     void plot(const std::vector<double>& x, const std::vector<double>& y)
     {
         PyObject *pytup = PyTuple_New(2);
-        npy_intp sz_x = x.size();
-        npy_intp sz_y = y.size();
-        std::vector<double> vx_dup;
-        vx_dup.reserve(x.size());
-        std::copy(x.begin(), x.end(), std::back_inserter(vx_dup));
-        std::vector<double> vy_dup;
-        vy_dup.reserve(y.size());
-        std::copy(y.begin(), y.end(), std::back_inserter(vy_dup));
-        auto xa = PyArray_SimpleNewFromData(1, &sz_x, NPY_DOUBLE, (void*)vx_dup.data());
-        auto ya = PyArray_SimpleNewFromData(1, &sz_y, NPY_DOUBLE, (void*)vy_dup.data());
-        PyTuple_SetItem(pytup, 0, xa);
-        PyTuple_SetItem(pytup, 1, ya); 
-        if (!PyCallable_Check(callable))
-            throw std::runtime_error("pyplot function is not callable!");
-        PyObject *res = PyObject_Call(callable, pytup, kwargs);
-        auto tup = PyTuple_New(0);
-        auto show = PyObject_GetAttrString(pyplot, "show");
+        npy_intp x_sz = static_cast<npy_intp>(x.size());
+        npy_intp y_sz = static_cast<npy_intp>(y.size());
+        PyTuple_SetItem(pytup, 0, PyArray_SimpleNewFromData(1, &x_sz, NPY_DOUBLE, (void*)x.data()));
+        PyTuple_SetItem(pytup, 1, PyArray_SimpleNewFromData(1, &y_sz, NPY_DOUBLE, (void*)y.data())); 
 
-        res = PyObject_CallObject(show,tup);
+        PyObject *res = PyObject_Call(callable, pytup, kwargs);
+        res = PyObject_CallObject(PyObject_GetAttrString(pyplot, "show"), PyTuple_New(0));
     }
 
     template <typename... Args> 
@@ -83,7 +69,6 @@ struct plotter
             const Args& ... rest)
     {
 
-        std::cout << "in plot" << std::endl;
         PyDict_SetItemString(kwargs, p.first.c_str(), PyUnicode_FromString(p.second.c_str())); 
         plot(x,y,rest...);
     }
@@ -95,7 +80,6 @@ struct plotter
             const Args& ... rest)
     {
 
-        std::cout << "in plot" << std::endl;
         PyDict_SetItem(kwargs, PyUnicode_FromString(p.first.c_str()), PyFloat_FromDouble(p.second)); 
         plot(x,y,rest...);
     }
@@ -106,8 +90,8 @@ int main()
 {
     std::vector<double> x{1,2,3,4,5}, y{1,2,3,4,5};
     std::pair<std::string, std::string> sp {"marker","x"};
-    /* std::pair<std::string, double> dp {"lw",0.5}; */
+    std::pair<std::string, double> dp {"lw",2.0};
     /* std::pair<std::string, int> ip {"s", 40}; */
     plotter p;
-    p.plot(x, y, sp);
+    p.plot(x, y, sp, dp);
 }
