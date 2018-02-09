@@ -1,0 +1,1 @@
+clear;g++ -g  -I /usr/include/python3.6dm/ -I /usr/lib/python3/dist-packages/numpy/core/include/ -I /usr/lib/python3/dist-packages/matplotlib/ -o variadic variadic.cpp -L /usr/lib/python3.6/config-3.6dm-x86_64-linux-gnu/ -lpython3.6dm -L /usr/lib/python3/dist-packages/matplotlib/ 
