@@ -10,12 +10,9 @@ struct Plotter
 {
     PyObject *matplotlib;
     PyObject *pyplot;
-    PyObject *kwargs;
-    PyObject *callable;
 
     Plotter()
     {
-        kwargs = PyDict_New();
         wchar_t name[] = L"variadic";
         Py_SetProgramName(name);
         Py_Initialize();
@@ -39,14 +36,8 @@ struct Plotter
 
     }
 
-    template<typename...Args>
-    virtual void plot(const std::vector<double> &x, const std::vector<double> &y,
-            const Args&... rest) = 0;
-
-    ~Plotter()
+    virtual ~Plotter()
     {
-        Py_DECREF(callable);
-        Py_DECREF(kwargs);
         Py_DECREF(pyplot);
         Py_DECREF(matplotlib);
         Py_Finalize();

@@ -1,10 +1,13 @@
+#include <iostream>
+#include <Python.h>
 #include <vector>
-#include <string>
-#include <utility>
-#include "Plotter.h"
+#include "plotter.h"
+
 
 struct Plt : public Plotter 
 {
+    PyObject *callable;
+
     Plt()
     {
         callable = PyObject_GetAttrString(pyplot, "plot");
@@ -12,77 +15,88 @@ struct Plt : public Plotter
             throw std::runtime_error("pyplot function is not callable!");
     }
 
-    // plot y using x as index array 0..N-1
-    template <typename... Args> 
-    void plot(const std::vector<double>& y)
+    /* template < typename... Types1, template <typename...> class T */
+             /* , typename... Types2, template <typename...> class V> */
+    /* void plot(const T<Types1...>& Args, const V<Types2...>& Kwargs) */
+    void plot(PyObject* args, PyObject* kwargs)
     {
-        PyObject *pytup = PyTuple_New(1);
-        npy_intp y_sz = static_cast<npy_intp>(y.size());
-        PyTuple_SetItem(pytup, 0, PyArray_SimpleNewFromData(1, &y_sz, NPY_DOUBLE, (void*)y.data()));
-
-        PyObject *res = PyObject_Call(callable, pytup, kwargs);
+        PyObject *res = PyObject_Call(callable, args, kwargs);
         res = PyObject_CallObject(PyObject_GetAttrString(pyplot, "show"), PyTuple_New(0));
-        Py_DECREF(pytup);
-        Py_DECREF(res);
+    }
+
+    ~Plt()
+    {
+        Py_DECREF(callable);
+    }
+};
+
+struct Parameters
+{
+    PyObject *kwargs;
+    PyObject *args;
+    Parameters()
+    {
+        kwargs = PyDict_New();
+    }
+    virtual ~Parameters()
+    {
+        Py_DECREF(args);
+        Py_DECREF(kwargs);
+    }
+
+};
+
+template <typename T>
+struct Args : public Parameters
+{
+    std::vector<T> v;
+
+    template<typename U>
+    Args(std::initializer_list<U>& il) : v(il)
+    {
+        int i = 0;
+        args = PyTuple_New(v.size());
+        for (const auto& e: v)
+        {
+            auto y_sz = static_cast<npy_intp>(e.size());
+            PyTuple_SetItem(args, i, PyArray_SimpleNewFromData(1, &y_sz, NPY_DOUBLE, (void*)e.data()));
+            ++i;
+        }
+    }
+};
+
+template <typename... Types>
+struct Kwargs : public Parameters
+{
+    Kwargs(const std::pair<std::string, std::string>& p) 
+    {
+        PyDict_SetItemString(kwargs, p.first.c_str(), PyUnicode_FromString(p.second.c_str())); 
     }
 
     template <typename... Args> 
-    void plot(const std::vector<double>& y, 
-            const std::pair<std::string, std::string>& p, 
-            const Args& ... rest)
+    Kwargs(const std::pair<std::string, std::string>& p, 
+           const Args& ... rest)
     {
-
         PyDict_SetItemString(kwargs, p.first.c_str(), PyUnicode_FromString(p.second.c_str())); 
-        plot(y,rest...);
+        Kwargs(rest...);
     }
 
-    template <typename T, typename... Args> 
-    void plot(const std::vector<double>& y, 
-            const std::pair<std::string, T>& p, 
-            const Args& ... rest)
+    template <typename T> 
+    Kwargs(const std::pair<std::string, T>& p) 
     {
 
         PyDict_SetItem(kwargs, PyUnicode_FromString(p.first.c_str()), PyFloat_FromDouble(p.second)); 
-        plot(y,rest...);
-    }
-    // end
-
-    // plot x and y
-    template <typename... Args> 
-    void plot(const std::vector<double>& x, const std::vector<double>& y)
-    {
-        PyObject *pytup = PyTuple_New(2);
-        npy_intp x_sz = static_cast<npy_intp>(x.size());
-        npy_intp y_sz = static_cast<npy_intp>(y.size());
-        PyTuple_SetItem(pytup, 0, PyArray_SimpleNewFromData(1, &x_sz, NPY_DOUBLE, (void*)x.data()));
-        PyTuple_SetItem(pytup, 1, PyArray_SimpleNewFromData(1, &y_sz, NPY_DOUBLE, (void*)y.data())); 
-
-        PyObject *res = PyObject_Call(callable, pytup, kwargs);
-        res = PyObject_CallObject(PyObject_GetAttrString(pyplot, "show"), PyTuple_New(0));
-        Py_DECREF(pytup);
-        Py_DECREF(res);
-    }
-
-    template <typename... Args> 
-    void plot(const std::vector<double>& x, 
-            const std::vector<double>& y, 
-            const std::pair<std::string, std::string>& p, 
-            const Args& ... rest)
-    {
-
-        PyDict_SetItemString(kwargs, p.first.c_str(), PyUnicode_FromString(p.second.c_str())); 
-        plot(x,y,rest...);
     }
 
     template <typename T, typename... Args> 
-    void plot(const std::vector<double>& x, 
-            const std::vector<double>& y, 
-            const std::pair<std::string, T>& p, 
-            const Args& ... rest)
+    Kwargs(const std::pair<std::string, T>& p, 
+           const Args& ... rest)
     {
 
         PyDict_SetItem(kwargs, PyUnicode_FromString(p.first.c_str()), PyFloat_FromDouble(p.second)); 
-        plot(x,y,rest...);
+        Kwargs(rest...);
     }
-    // end
-};     
+};
+
+
+        
