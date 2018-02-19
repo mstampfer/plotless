@@ -2,101 +2,63 @@
 #include <Python.h>
 #include <vector>
 #include "plotter.h"
-
+#include "arguments.h"
+#include <Eigen/Dense>
+using namespace Eigen;
 
 struct Plt : public Plotter 
 {
-    PyObject *callable;
+    PyObject *plot_f;
+    PyObject *axis_f;
 
     Plt()
     {
-        callable = PyObject_GetAttrString(pyplot, "plot");
-        if (!PyCallable_Check(callable))
-            throw std::runtime_error("pyplot function is not callable!");
+        plot_f = PyObject_GetAttrString(pyplot, "plot");
+        if (!PyCallable_Check(plot_f))
+            throw std::runtime_error("plot function is not callable!");
+        axis_f = PyObject_GetAttrString(pyplot, "axis");
+        if (!PyCallable_Check(axis_f))
+            throw std::runtime_error("axis function is not callable!");
     }
 
-    /* template < typename... Types1, template <typename...> class T */
-             /* , typename... Types2, template <typename...> class V> */
-    /* void plot(const T<Types1...>& Args, const V<Types2...>& Kwargs) */
-    void plot(PyObject* args, PyObject* kwargs)
+    template <typename T, typename U>
+    void plot(const T& a, const U& b)
+    { 
+        PyObject *plot = PyObject_Call(plot_f, a.args, b.kwargs);
+        if (!plot)
+        {
+            std::cout << "\nargs: ";
+            PyObject_Print(a.args,stdout,0);
+            std::cout<< "\nkwargs: ";
+            PyObject_Print(b.kwargs,stdout,0);
+            std::cout<<std::endl;
+            throw std::runtime_error("Unable to call plot with above arguments.");
+        }
+    }
+
+    void axis(const std::vector<double>& v) 
     {
-        PyObject *res = PyObject_Call(callable, args, kwargs);
-        res = PyObject_CallObject(PyObject_GetAttrString(pyplot, "show"), PyTuple_New(0));
+        PyObject* args = PyTuple_New(1);
+        auto y_sz = static_cast<npy_intp>(v.size());
+        PyTuple_SetItem(args, 0, PyArray_SimpleNewFromData(1, &y_sz, NPY_DOUBLE, (void*)v.data()));
+        PyObject *axis = PyObject_Call(axis_f, args, NULL);
+        if (!axis)
+        {
+            std::cout << "\nargs: ";
+            PyObject_Print(args,stdout,0);
+            throw std::runtime_error("Unable to call axis with above arguments.");
+        }
+            
+    }
+
+    void show()
+    {
+       PyObject_CallObject(PyObject_GetAttrString(pyplot, "show"), PyTuple_New(0));
     }
 
     ~Plt()
     {
-        Py_DECREF(callable);
+        Py_DECREF(plot_f);
+        Py_DECREF(axis_f);
     }
 };
-
-struct Parameters
-{
-    PyObject *kwargs;
-    PyObject *args;
-    Parameters()
-    {
-        kwargs = PyDict_New();
-    }
-    virtual ~Parameters()
-    {
-        Py_DECREF(args);
-        Py_DECREF(kwargs);
-    }
-
-};
-
-template <typename T>
-struct Args : public Parameters
-{
-    std::vector<T> v;
-
-    template<typename U>
-    Args(std::initializer_list<U>& il) : v(il)
-    {
-        int i = 0;
-        args = PyTuple_New(v.size());
-        for (const auto& e: v)
-        {
-            auto y_sz = static_cast<npy_intp>(e.size());
-            PyTuple_SetItem(args, i, PyArray_SimpleNewFromData(1, &y_sz, NPY_DOUBLE, (void*)e.data()));
-            ++i;
-        }
-    }
-};
-
-template <typename... Types>
-struct Kwargs : public Parameters
-{
-    Kwargs(const std::pair<std::string, std::string>& p) 
-    {
-        PyDict_SetItemString(kwargs, p.first.c_str(), PyUnicode_FromString(p.second.c_str())); 
-    }
-
-    template <typename... Args> 
-    Kwargs(const std::pair<std::string, std::string>& p, 
-           const Args& ... rest)
-    {
-        PyDict_SetItemString(kwargs, p.first.c_str(), PyUnicode_FromString(p.second.c_str())); 
-        Kwargs(rest...);
-    }
-
-    template <typename T> 
-    Kwargs(const std::pair<std::string, T>& p) 
-    {
-
-        PyDict_SetItem(kwargs, PyUnicode_FromString(p.first.c_str()), PyFloat_FromDouble(p.second)); 
-    }
-
-    template <typename T, typename... Args> 
-    Kwargs(const std::pair<std::string, T>& p, 
-           const Args& ... rest)
-    {
-
-        PyDict_SetItem(kwargs, PyUnicode_FromString(p.first.c_str()), PyFloat_FromDouble(p.second)); 
-        Kwargs(rest...);
-    }
-};
-
-
-        

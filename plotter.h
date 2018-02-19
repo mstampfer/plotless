@@ -10,6 +10,7 @@ struct Plotter
 {
     PyObject *matplotlib;
     PyObject *pyplot;
+    PyObject *plot;
 
     Plotter()
     {

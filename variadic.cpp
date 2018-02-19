@@ -3,32 +3,28 @@
 #include <string>
 #include <iostream>
 #include "plot.h"
+#include <numeric>
 
+auto range(double start, double end)
+{
+    std::vector<double> v(end-start);
+    std::iota(v.begin(),v.end(), start);
+    return v;
+}
 int main()
 {
     Plt plt;
-    std::vector<double> v1{1.,2.,3.};
-    std::vector<double> v2{1.,2.,3.};
-    std::vector<double> v3{1.,2.,3.};
-    std::initializer_list<std::vector<double>> il{v1};
-    /* std::initializer_list<std::vector<double>> il{v1, v2, v3}; */
-    Args<std::vector<double>> args(il);
+    RowVector3d x(range(1,5).data()); 
+    std::initializer_list<RowVector3d> il{x, x*1.5, x, x*3.0, x, x/3.0};
+    Args<RowVector3d> args(il);
     
-    std::pair<std::string, std::string> sp {"marker","x"};
-    std::pair<std::string, double> dp {"lw",2.0};
-    Kwargs<char, int> kwargs(sp, dp);
-    plt.plot(args.args, kwargs.kwargs);
+    auto sp = std::make_pair("marker","x");
+    auto dp = std::make_pair("lw",2.0);
+    Kwargs<char, double> kwargs(sp, dp);
+    plt.plot(args, kwargs);
+    
+    plt.axis({0.0,5.0,-1.0,13.0});
+    plt.show();
 
-    /* std::vector<double> x{1,2,3,4,5}, y{1,2,3,4,5}; */
-    /* std::pair<std::string, std::string> sp {"marker","x"}; */
-    /* std::pair<std::string, double> dp {"lw",2.0}; */
-    /* Plt plt; */
-    /* plt.plot(x, y, sp, dp); */
-
-    /* std::vector<double> x{1,2,3,4,5}; */
-    /* std::pair<std::string, std::string> sp {"marker","o"}; */
-    /* std::pair<std::string, double> dp {"lw",2.0}; */
-    /* Plt plt; */
-    /* plt.plot(x, sp, dp); */
     return 0;
 }
