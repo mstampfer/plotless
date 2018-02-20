@@ -8,7 +8,6 @@
 template <typename T>
 struct Args 
 {
-    std::vector<T> v;
     PyObject *args;
 
     ~Args()
@@ -16,26 +15,24 @@ struct Args
         Py_DECREF(args);
     }
     template<typename U>
-    Args(std::initializer_list<U>& il) : v(il)
+    Args(std::vector<U>& v)
     {
         int i = 0;
         args = PyTuple_New(v.size());
         for (const auto& e: v)
         {
-            std::cout << e <<std::endl;
             auto y_sz = static_cast<npy_intp>(e.size());
             PyTuple_SetItem(args, i, PyArray_SimpleNewFromData(1, &y_sz, NPY_DOUBLE, (void*)e.data()));
             ++i;
         }
     }
-    template<typename U>
-    Args(std::vector<U>& vec) : v(vec)
+
+    Args(std::vector<double>&& v) 
     {
         int i = 0;
         args = PyTuple_New(v.size());
         for (const auto& e: v)
         {
-            std::cout << e <<std::endl;
             PyTuple_SetItem(args, i, PyFloat_FromDouble(e)); 
             ++i;
         }
@@ -59,26 +56,22 @@ struct Kwargs
 
     template <typename... Args> 
     Kwargs(const std::pair<const char*, const char*>& p, 
-           const Args& ... rest)
+           const Args& ... rest) : Kwargs(rest...)
     {
         PyDict_SetItemString(kwargs, p.first, PyUnicode_FromString(p.second)); 
-        Kwargs(rest...);
     }
 
     template <typename T> 
     Kwargs(const std::pair<const char*, T>& p) 
     {
-
         PyDict_SetItem(kwargs, PyUnicode_FromString(p.first), PyFloat_FromDouble(p.second)); 
     }
 
     template <typename T, typename... Args> 
     Kwargs(const std::pair<const char*, T>& p, 
-           const Args& ... rest)
+           const Args& ... rest) : Kwargs(rest...)
     {
-
         PyDict_SetItem(kwargs, PyUnicode_FromString(p.first), PyFloat_FromDouble(p.second)); 
-        Kwargs(rest...);
     }
 };
 

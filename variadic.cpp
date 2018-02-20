@@ -4,26 +4,32 @@
 #include <iostream>
 #include "plot.h"
 #include <numeric>
-
+#include <Eigen/Dense>
+using namespace Eigen;
 auto range(double start, double end)
 {
     std::vector<double> v(end-start);
     std::iota(v.begin(),v.end(), start);
-    return v;
+    return std::move(v);
 }
 int main()
 {
     Plt plt;
-    RowVector3d x(range(1,5).data()); 
-    std::initializer_list<RowVector3d> il{x, x*1.5, x, x*3.0, x, x/3.0};
-    Args<RowVector3d> args(il);
+    typedef Matrix<double, 4, 1> ColVector4d;
+    
+    ColVector4d x(range(1,5).data()); 
+    std::vector<ColVector4d> v{x, x*1.5, x, x*3.0, x, x/3.0};
+    Args<ColVector4d> args(v);
     
     auto sp = std::make_pair("marker","x");
     auto dp = std::make_pair("lw",2.0);
-    Kwargs<char, double> kwargs(sp, dp);
+    Kwargs kwargs({sp, dp}); 
+
     plt.plot(args, kwargs);
-    
     plt.axis({0.0,5.0,-1.0,13.0});
+    plt.xlabel("This is the X axis");
+    plt.ylabel("This is the Y axis");
+    plt.grid(true);
     plt.show();
 
     return 0;
